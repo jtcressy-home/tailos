@@ -19,6 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        imagerepo: ghcr.io/jtcressy-home/
+        osid: tailos
         include:
           - flavor: "opensuse-arm-rpi"
             model: rpi64
@@ -36,9 +38,15 @@ jobs:
         uses: docker/setup-qemu-action@master
         with:
           platforms: all
-      - name: Login to Quay Registry
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        run: echo ${{ secrets.QUAY_PASSWORD }} | docker login -u ${{ secrets.QUAY_USERNAME }} --password-stdin quay.io
+
+      - name: Login to GHCR
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
       - name: Set up Docker Buildx
@@ -49,26 +57,26 @@ jobs:
           FLAVOR: ${{ matrix.flavor }}
           MODEL: ${{ matrix.model }}
         run: |
-          ./earthly.sh +all-arm --IMAGE_NAME=c3os-$FLAVOR-latest.img --IMAGE=quay.io/c3os/core-$FLAVOR:latest --MODEL=$MODEL --FLAVOR=$FLAVOR
+          ./earthly.sh +all-arm --IMAGE_NAME=${{ matrix.osid }}-$FLAVOR-latest.img --IMAGE=${{ matrix.imagerepo }}/${{ matrix.osid }}-core-$FLAVOR:latest --MODEL=$MODEL --FLAVOR=$FLAVOR
       - name: Push  🔧
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
         env:
           FLAVOR: ${{ matrix.flavor }}
-          IMAGE: quay.io/c3os/core-$FLAVOR:latest
+          IMAGE: ${{ matrix.imagerepo }}/${{ matrix.osid }}-core-$FLAVOR:latest
           MODEL: ${{ matrix.model }}
         run: |
           export TAG=latest
-          export IMAGE_NAME=c3os-$FLAVOR-$TAG.img
-          export IMAGE=quay.io/c3os/core-$FLAVOR:$TAG
-          docker push quay.io/c3os/core-$FLAVOR:$TAG
-      - name: Sign image
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        env:
-          COSIGN_EXPERIMENTAL: 1
-          FLAVOR: ${{ matrix.flavor }}
-        run: | 
-          TAG=latest
-          cosign sign quay.io/c3os/core-$FLAVOR:$TAG
+          export IMAGE_NAME=${{ matrix.osid }}-$FLAVOR-$TAG.img
+          export IMAGE=${{ matrix.imagerepo }}/${{ matrix.osid }}-core-$FLAVOR:$TAG
+          docker push ${{ matrix.imagerepo }}/${{ matrix.osid }}-core-$FLAVOR:$TAG
+#      - name: Sign image
+#        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+#        env:
+#          COSIGN_EXPERIMENTAL: 1
+#          FLAVOR: ${{ matrix.flavor }}
+#        run: |
+#          TAG=latest
+#          cosign sign ${{ matrix.imagerepo }}/${{ matrix.osid }}-core-$FLAVOR:$TAG
       - name: Upload results
         uses: actions/upload-artifact@v2
         with:
