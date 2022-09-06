@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        imagerepo: ghcr.io/jtcressy-home/
-        osid: tailos
+        imagerepo: ["ghcr.io/jtcressy-home/"]
+        osid: ["tailos"]
         include:
         - flavor: "opensuse"
         #- flavor: "tumbleweed"
